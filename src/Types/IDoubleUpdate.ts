@@ -31,3 +31,9 @@ export interface DoubleUpdateV2 {
     "total_black_eur_bet": number | null;
     "total_black_bets_placed": number | null;
 }
+
+export const color  = {
+    2 : "Black",
+    1 : "Red",
+    0 : "White"
+}
