@@ -3,8 +3,11 @@ import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 // ✅ write to file SYNCHRONOUSLY
-function syncWriteFile(filename: string, data: any) {
-  writeFileSync(join(__dirname, filename), data + "\n", {
+function syncWriteFile(data: any) {
+    let yourDate = new Date()
+    const filename = yourDate.toISOString().split('T')[0]
+    const output = `${data['aposta']},${data['valor_aposta']},${data['LosesSeguidas']},${data['winner']},${data['data']},${data['saldo']}`
+    writeFileSync(join(__dirname, filename), output + "\n", {
     flag: 'a+',
   });
 
@@ -35,22 +38,33 @@ var writeWinner = false;
 
 var output = {};
 var loses = 0;
-var saldo = 0;
+var saldo = 3000;
+var valor_aposta_inicial = 1;
+var valor_aposta  = valor_aposta_inicial
+const gale = 2.1
 
 socket.ev.on('double.tick', (msg) => {
     if (isV2(msg)) {
 
         if(lastId != msg.id && secondsUntilEnd(new Date(msg.created_at)) < 1) {
+            if(loses > 6) {
+                loses = 0
+            }
             lastId = msg.id;
             writeWinner = true
 
             let aposta = "Red";
-            if (msg.total_red_eur_bet > msg.total_black_eur_bet ) {
+            if (msg.total_red_eur_bet < msg.total_black_eur_bet ) {
                 aposta = "Black"
             }
 
+            valor_aposta = (loses > 0) ? valor_aposta * gale : valor_aposta_inicial;
+
+            saldo = saldo - valor_aposta
+
             output = { 
-                'aposta' : aposta
+                'aposta' : aposta,
+                'valor_aposta' : valor_aposta
             }
 
         }
@@ -64,18 +78,20 @@ socket.ev.on('double.tick', (msg) => {
             if(winner != null) {
                 if(winner == output["aposta"]) {
                     loses = 0;
-                    saldo += 1;
+                    saldo += (valor_aposta * 2)
                 } else {
                     loses += 1
-                    saldo -= 1;
                 }
+
                 output['LosesSeguidas'] = loses
                 output['winner'] = winner
                 output['data'] = msg.created_at
                 output['saldo'] = saldo
 
                 
-                syncWriteFile('./output.txt', JSON.stringify(output));
+                syncWriteFile('./output2.txt', output);
+
+                console.table(output);
 
                 writeWinner = false;
             }
