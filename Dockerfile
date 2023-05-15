@@ -1,12 +1,11 @@
-FROM node:14
-
-RUN npm update
-RUN apt update
+FROM node:17
 
 COPY . /blaze
 WORKDIR /blaze
 
-RUN yarn install
-RUN yarn build
+RUN npm update
+RUN apt update
+RUN npm install
+RUN npm install -g ts-node
 
-CMD ["node", "-r", "./build/websocket.js", "--unhandled-rejections=strict", "build/index.js"]
+CMD ["npm", "run", "example"]

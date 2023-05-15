@@ -26,6 +26,7 @@
   },
   "homepage": "https://github.com/viniciusgdr/blaze#readme",
   "dependencies": {
+    "request": "^2.81.0",
     "typescript": "^4.6.3",
     "ws": "^8.8.0"
   },
