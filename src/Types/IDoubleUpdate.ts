@@ -1,6 +1,7 @@
 import { IBet } from ".";
 
 export type statusdoubles = "complete" | "rolling" | "waiting"
+export type colorText = "Red" | "Black" | "White"
 export interface DoubleUpdate {
     "type": 'v1';
     "game": 'doubles';
@@ -32,8 +33,14 @@ export interface DoubleUpdateV2 {
     "total_black_bets_placed": number | null;
 }
 
-export const color  = {
+export const ColorBet  = {
     2 : "Black",
     1 : "Red",
     0 : "White"
+}
+
+export const ColorToBet  = {
+    "Black": 2,
+    "Red": 1,
+    "White" : 0
 }

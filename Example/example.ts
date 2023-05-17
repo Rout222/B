@@ -1,10 +1,60 @@
-import { DoubleUpdate, DoubleUpdateV2, color, makeConnectionBlaze } from "../src"
+import { DoubleUpdate, DoubleUpdateV2, IWallet, ColorBet, makeConnectionBlaze, IDoubleBet, ColorToBet, colorText } from "../src"
 import { writeFileSync } from 'fs';
 import { join } from 'path';
 
+
 const request = require('request');
 
+const url_wallet = "https://blaze.com/api/wallets"
+const url_bet = "https://blaze.com/api/roulette_bets"
+const bearer = `Bearer ${process.env.BLAZE_KEY}`
+const telegram_key = process.env.TELEGRAM_KEY
 
+const { Telegraf } = require('telegraf');
+
+var chatIds : number[] = [1363185514, 6133390787]
+
+const bot = new Telegraf(telegram_key);
+
+function notify_vitoria() {
+    const msg = "Ganhamos ❤️ | Saldo: R$ ${saldo}"
+    chatIds.forEach(chatId => bot.telegram.sendMessage(chatId, msg));
+}
+
+function notify_perda() {
+    const msg = "Acabamos de perder </3, resetando."
+    chatIds.forEach(chatId => bot.telegram.sendMessage(chatId, msg));
+}
+
+function notify_aposta(valor_aposta: number, cor: string) {
+    const aposta_humanizada = valor_aposta.toFixed(2)
+    const msg = `Apostando R$ ${aposta_humanizada} no ${cor} | Saldo: R$ ${saldo}`
+    chatIds.forEach(chatId => bot.telegram.sendMessage(chatId, msg));
+}
+
+function start (ctx) {
+    ctx.reply('Welcome');
+    console.log(ctx.message.chat.id, "added")
+    chatIds.push(ctx.message.chat.id);    
+}
+
+bot.start((ctx) => start(ctx));
+bot.launch();
+
+// Enable graceful stop
+process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'));
+
+
+const options = {
+    method: 'GET',
+    headers: {
+      'User-Agent': 'my request',
+      'Authorization': bearer,
+      'Content-Type': 'application/json',
+      'Accept': 'application/json'
+    }
+  };
 
 function isV2(msg: DoubleUpdateV2 | DoubleUpdate): msg is DoubleUpdateV2 { //magic happens here
     return (<DoubleUpdateV2>msg).total_red_eur_bet !== undefined;
@@ -80,8 +130,22 @@ var writeWinner = false;
 
 var output = {};
 var loses = 0;
-var saldo = 3000;
-var valor_aposta_inicial = 1;
+var wallet : IWallet;
+async function atualizarWallet(){
+    options['url'] = url_wallet
+    request(options, (err, res, body) => {
+        const wallets : IWallet[] = JSON.parse(body)
+        wallet = wallets[0]
+        saldo = parseFloat(wallets[0].real_balance);
+    });
+}
+
+var saldo = 0;
+
+atualizarWallet()
+
+
+var valor_aposta_inicial = 0.1;
 var valor_aposta  = valor_aposta_inicial
 const gale = 2.1
 var esperar_threshold_resetar = false
@@ -104,24 +168,43 @@ function syncWriteFile(data: any) {
   });
 }
 
-var jogando = false
-let aposta = "NÃO JOGOU"
+var horaDeApostar = false
+let aposta : colorText
 valor_aposta = 0
+
+function apostar(valor: number, cor: colorText){
+    const input = {...options}
+    input['method'] =  'POST';
+    const color = ColorToBet[cor.toString()]
+    const aposta : IDoubleBet = {
+        "amount": valor.toFixed(2),
+        "currency_type": "BRL",
+        "color": color,
+        "free_bet": false,
+        "wallet_id": wallet.id
+    }
+    input['url'] = url_bet
+    input['json'] = aposta
+    
+    request(input, (err, res, bet) => {
+        console.log(bet)
+    });
+
+    notify_aposta(valor, cor)
+}
 
 socket.ev.on('double.tick', (msg) => {
     if (isV2(msg)) {
 
-        if(lastId != msg.id && secondsUntilEnd(new Date(msg.created_at)) < 1) {
+        if(lastId != msg.id && secondsUntilEnd(new Date(msg.created_at)) < 5) {
             if(loses > 6) {
                 loses = 0
+                notify_perda()
             }
             lastId = msg.id;
             writeWinner = true
 
-            if(!jogando){
-
-                aposta = "NÃO JOGOU"
-
+            if(!horaDeApostar){
                 if(tem_dados_da_ultima_hora()) {
                     if(saldoRedUltimaHora() < threshhold && saldoBlackUltimaHora() < threshhold) {
                         esperar_threshold_resetar = false
@@ -129,26 +212,25 @@ socket.ev.on('double.tick', (msg) => {
 
                     if(saldoRedUltimaHora() >= threshhold && !esperar_threshold_resetar) {
                         aposta = "Black"
-                        jogando = true
+                        horaDeApostar = true
                         valor_aposta = valor_aposta_inicial
                         loses = 0
                     }
                     if(saldoBlackUltimaHora() >= threshhold && !esperar_threshold_resetar) {
                         aposta = "Red"
-                        jogando = true
+                        horaDeApostar = true
                         valor_aposta = valor_aposta_inicial
                         loses = 0
                     }
                 }
 
-            }
-
-            
+            }           
 
             valor_aposta = (loses > 0) ? valor_aposta * gale : valor_aposta;
 
-            if(jogando) {
-                saldo = saldo - valor_aposta
+            if(horaDeApostar) {
+                apostar(valor_aposta, aposta)
+                atualizarWallet()
             }
 
             output = { 
@@ -159,20 +241,25 @@ socket.ev.on('double.tick', (msg) => {
         }
 
         if(writeWinner) {
+            atualizarWallet()
             var winner = null
             if (msg.color != null ) {
-                winner = color[msg.color];
+                winner = ColorBet[msg.color];
             }
 
 
             if(winner != null) {
                 adicionaWinner(winner)
-                if(jogando) {
+                if (!horaDeApostar) {
+                    output['aposta'] = 'não_jogou'
+                    output['valor_aposta'] = 0
+                }
+
+                if(horaDeApostar) {
                     if(winner == output["aposta"]) {
-                        jogando = false
+                        horaDeApostar = false
                         esperar_threshold_resetar = true
                         loses = 0;
-                        saldo += (valor_aposta * 2)
                     } else {
                         loses += 1
                     }
@@ -186,8 +273,6 @@ socket.ev.on('double.tick', (msg) => {
 
                 
                 syncWriteFile(output);
-
-                console.table(output);
 
                 writeWinner = false;
             }
