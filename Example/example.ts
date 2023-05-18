@@ -12,11 +12,19 @@ const url_bet = "https://blaze.com/api/roulette_bets"
 const bearer = `Bearer ${process.env.BLAZE_KEY}`
 const telegram_key = process.env.TELEGRAM_KEY
 
+const GALE_MAXIMO = 6
+
 const { Telegraf } = require('telegraf');
 
 var chatIds : number[] = [1363185514, 6133390787]
 
 const bot = new Telegraf(telegram_key);
+
+function aposta_inicial() : number{
+
+    return 0.4;
+    //return saldo * (1 - gale_multiplicativo) / (1 - gale_multiplicativo ^ GALE_MAXIMO)
+}
 
 
 bot.command('kill', async (ctx) => {
@@ -28,11 +36,12 @@ bot.command('kill', async (ctx) => {
 bot.command('dados', async (ctx) => {
     const saldo_black = (saldoBlackUltimaHora() * 100).toFixed(2)
     const saldo_red = (saldoRedUltimaHora() * 100).toFixed(2)
-    const msg = `${saldo_black}% ⬛ |  ${saldo_red}% 🟥 | Saldo R$ ${saldo}`
+    const msg = `Info:\n\t ${saldo_black}% ⬛ \n\t ${saldo_red}% 🟥 \n\t Saldo R$ ${saldo} \n\t Aposta inicial R$ ${aposta_inicial()} \n\t Gale_Multiplicativo ${gale_multiplicativo}x` 
     ctx.reply(msg);
 });
 
-function notify_vitoria() {
+async function notify_vitoria() {
+    await atualizarWallet()
     const msg = `Ganhamos ❤️ | Saldo: R$ ${saldo}`
     chatIds.forEach(chatId => bot.telegram.sendMessage(chatId, msg));
 }
@@ -44,7 +53,7 @@ function notify_perda() {
 
 function notify_aposta(valor_aposta: number, cor: string) {
     const aposta_humanizada = valor_aposta.toFixed(2)
-    const msg = `Apostando R$ ${aposta_humanizada} no ${cor} | Saldo: R$ ${saldo}`
+    const msg = `Apostando R$ ${aposta_humanizada} no ${cor} | Saldo: R$ ${saldo} | Derrotas: ${loses}`
     chatIds.forEach(chatId => bot.telegram.sendMessage(chatId, msg));
 }
 
@@ -108,6 +117,7 @@ var max_aposta_horas = 2 * 60;
 var winners : String[] = []
 
 const threshhold : number = 0.55
+const threshold_resetar : number = 0.54
 
 function adicionaWinner(winner: string){
     winners.push(winner)
@@ -165,29 +175,10 @@ var saldo = 0;
 
 atualizarWallet()
 
+const gale_multiplicativo = 2.1
+var valor_aposta  = aposta_inicial()
+var esperar_threshold_resetar = true
 
-var valor_aposta_inicial = 0.1;
-var valor_aposta  = valor_aposta_inicial
-const gale = 2.1
-var esperar_threshold_resetar = false
-
-function writeHeader(filename) {
-    const output = "cor_com_maior_aposta, valor_aposta, loses_seguidas, winner, data, saldo, saldo_red_total, saldo_black_total, saldo_red_ultima_hora, saldo_black_ultima_hora"
-    writeFileSync(join(__dirname, filename), output + "\n", {
-        flag: 'a+',
-      });
-}
-
-// ✅ write to file SYNCHRONOUSLY
-function syncWriteFile(data: any) {
-    let yourDate = new Date()
-    const filename = yourDate.toISOString().split('T')[0] + ".csv"
-    const output = `${data['aposta']},${data['valor_aposta']},${data['LosesSeguidas']},${data['winner']},${data['data']},${data['saldo']},${saldoRedTotal()},${saldoBlackTotal()},${saldoRedUltimaHora()},${saldoBlackUltimaHora()}`
-
-    writeFileSync(join(__dirname, filename), output + "\n", {
-    flag: 'a+',
-  });
-}
 
 var horaDeApostar = false
 let aposta : colorText
@@ -218,7 +209,7 @@ socket.ev.on('double.tick', (msg) => {
     if (!PARADA_OBRIGATORIA && isV2(msg)) {
 
         if(lastId != msg.id && secondsUntilEnd(new Date(msg.created_at)) < 5) {
-            if(loses > 6) {
+            if(loses > GALE_MAXIMO) {
                 loses = 0
                 notify_perda()
             }
@@ -227,27 +218,27 @@ socket.ev.on('double.tick', (msg) => {
 
             if(!horaDeApostar){
                 if(tem_dados_da_ultima_hora()) {
-                    if(saldoRedUltimaHora() < threshhold && saldoBlackUltimaHora() < threshhold) {
+                    if(saldoRedUltimaHora() <= threshold_resetar && saldoBlackUltimaHora() <= threshold_resetar) {
                         esperar_threshold_resetar = false
                     }
 
                     if(saldoRedUltimaHora() >= threshhold && !esperar_threshold_resetar) {
                         aposta = "Black"
                         horaDeApostar = true
-                        valor_aposta = valor_aposta_inicial
+                        valor_aposta = aposta_inicial()
                         loses = 0
                     }
                     if(saldoBlackUltimaHora() >= threshhold && !esperar_threshold_resetar) {
                         aposta = "Red"
                         horaDeApostar = true
-                        valor_aposta = valor_aposta_inicial
+                        valor_aposta = aposta_inicial()
                         loses = 0
                     }
                 }
 
             }           
 
-            valor_aposta = (loses > 0) ? valor_aposta * gale : valor_aposta;
+            valor_aposta = (loses > 0) ? valor_aposta * gale_multiplicativo : valor_aposta;
 
             if(horaDeApostar) {
                 apostar(valor_aposta, aposta)
@@ -292,9 +283,6 @@ socket.ev.on('double.tick', (msg) => {
                 output['winner'] = winner
                 output['data'] = msg.created_at
                 output['saldo'] = saldo
-
-                
-                syncWriteFile(output);
 
                 writeWinner = false;
             }
