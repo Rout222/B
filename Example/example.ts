@@ -1,7 +1,9 @@
 import { DoubleUpdate, DoubleUpdateV2, IWallet, ColorBet, makeConnectionBlaze, IDoubleBet, ColorToBet, colorText } from "../src"
 import { writeFileSync } from 'fs';
 import { join } from 'path';
+import { exit } from "process";
 
+var PARADA_OBRIGATORIA : boolean = false;
 
 const request = require('request');
 
@@ -16,8 +18,22 @@ var chatIds : number[] = [1363185514, 6133390787]
 
 const bot = new Telegraf(telegram_key);
 
+
+bot.command('kill', async (ctx) => {
+    const msg = "Comando de parada forçada. Parando."
+    chatIds.forEach(chatId => bot.telegram.sendMessage(chatId, msg));
+    PARADA_OBRIGATORIA = true
+});
+
+bot.command('dados', async (ctx) => {
+    const saldo_black = (saldoBlackUltimaHora() * 100).toFixed(2)
+    const saldo_red = (saldoRedUltimaHora() * 100).toFixed(2)
+    const msg = `${saldo_black}% ⬛ |  ${saldo_red}% 🟥 | Saldo R$ ${saldo}`
+    ctx.reply(msg);
+});
+
 function notify_vitoria() {
-    const msg = "Ganhamos ❤️ | Saldo: R$ ${saldo}"
+    const msg = `Ganhamos ❤️ | Saldo: R$ ${saldo}`
     chatIds.forEach(chatId => bot.telegram.sendMessage(chatId, msg));
 }
 
@@ -38,12 +54,17 @@ function start (ctx) {
     chatIds.push(ctx.message.chat.id);    
 }
 
+function botParou() {
+    const msg = "Bot parou. Algo de errado aconteceu."
+    chatIds.forEach(chatId => bot.telegram.sendMessage(chatId, msg));
+}
+
 bot.start((ctx) => start(ctx));
 bot.launch();
 
 // Enable graceful stop
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+process.once('SIGINT', () => botParou());
+process.once('SIGTERM', () => botParou());
 
 
 const options = {
@@ -194,7 +215,7 @@ function apostar(valor: number, cor: colorText){
 }
 
 socket.ev.on('double.tick', (msg) => {
-    if (isV2(msg)) {
+    if (!PARADA_OBRIGATORIA && isV2(msg)) {
 
         if(lastId != msg.id && secondsUntilEnd(new Date(msg.created_at)) < 5) {
             if(loses > 6) {
@@ -257,6 +278,7 @@ socket.ev.on('double.tick', (msg) => {
 
                 if(horaDeApostar) {
                     if(winner == output["aposta"]) {
+                        notify_vitoria()
                         horaDeApostar = false
                         esperar_threshold_resetar = true
                         loses = 0;
