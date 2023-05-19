@@ -165,6 +165,10 @@ var wallet : IWallet;
 async function atualizarWallet(){
     options['url'] = url_wallet
     request(options, (err, res, body) => {
+        if(!!err) {
+            console.error(err)
+            return;
+        }
         const wallets : IWallet[] = JSON.parse(body)
         wallet = wallets[0]
         saldo = parseFloat(wallets[0].real_balance);
@@ -199,6 +203,10 @@ function apostar(valor: number, cor: colorText){
     input['json'] = aposta
     
     request(input, (err, res, bet) => {
+        if(!!err) {
+            console.error(err)
+            return;
+        }
         console.log(bet)
     });
 
