@@ -17,12 +17,3 @@ export interface IWallet  {
         "fiat": boolean
     }
 }
-
-
-export interface IDoubleBet {
-    "amount": string,
-    "currency_type": "BRL",
-    "color": 0 | 1 | 2,
-    "free_bet": false,
-    "wallet_id": number
-}
