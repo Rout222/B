@@ -41,7 +41,7 @@ export class BlazeAPI {
     private getAuthOptions(): CoreOptions {
         return {
             auth: {
-                bearer: "bearerToken",
+                bearer: `bearer ${this.token}`,
             },
             headers: {
                 "User-Agent": "Rx-Http-Request",
@@ -83,6 +83,7 @@ export class BlazeAPI {
         RxHR.get<IWallet[]>(URL_WALLET, this.getAuthOptions()).subscribe(
             (req) => {
                 const wallet = req.body[0]
+                console.log(wallet)
                 this.wallet$.next(wallet);
             }
         );

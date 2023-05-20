@@ -14,8 +14,8 @@ export class TelegramBot {
         this.bot = new Telegraf(TELEGRAM_KEY);
         this.break$ = break_provider
 
-        wallet_provider.subscribe(v => this.wallet)
-        double_history_provider.subscribe(v => this.double_history)
+        wallet_provider.subscribe(v => this.wallet = v)
+        double_history_provider.subscribe(v => this.double_history = v)
 
         this.setupCommands()
     }
@@ -30,7 +30,7 @@ export class TelegramBot {
         this.bot.command('dados', async (ctx) => {
             const saldo_black = 1
             const saldo_red = 2
-            const msg = this.wallet.toString() // `Info:\n\t ${saldo_black}% ⬛ \n\t ${saldo_red}% 🟥 \n\t Saldo R$ ${saldo} \n\t Aposta inicial R$ ${aposta_inicial()} \n\t Gale_Multiplicativo ${gale_multiplicativo}x`
+            const msg = "Oi wallet:" + JSON.stringify(this.wallet) // `Info:\n\t ${saldo_black}% ⬛ \n\t ${saldo_red}% 🟥 \n\t Saldo R$ ${saldo} \n\t Aposta inicial R$ ${aposta_inicial()} \n\t Gale_Multiplicativo ${gale_multiplicativo}x`
             ctx.reply(msg);
         });
 
