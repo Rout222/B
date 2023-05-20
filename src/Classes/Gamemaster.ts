@@ -40,6 +40,7 @@ export class Gamemaster {
 
     private setupClock () {
         this.interval = setInterval(() => {
+            console.log("Clock")
             this.api.updateDoubleHistory();
         }, INTERVALO_CLOCK)
 

@@ -72,5 +72,6 @@ export class TelegramBot {
     private botParou() {
         const msg = "Bot parou. Algo de errado aconteceu."
         ADMIN_IDS.forEach(chatId => this.bot.telegram.sendMessage(chatId, msg));
+        this.bot.stop()
     }
 }
