@@ -1,16 +1,16 @@
 import { Subject } from "rxjs";
 import { Telegraf } from "telegraf";
-import { IWallet } from "../Types";
+import { IDouble, IWallet } from "../Types";
 
 //const ADMIN_IDS : number[] = [1363185514, 6133390787]
 const ADMIN_IDS : number[] = [1363185514]
 export class TelegramBot {
     private bot: Telegraf;
     private wallet: IWallet;
-    private double_history: string[];
+    private double_history: IDouble[] = [];
     private break$: Subject<boolean>;
 
-    constructor(TELEGRAM_KEY: string, wallet_provider: Subject<IWallet>, double_history_provider: Subject<string[]>, break_provider: Subject<boolean>) {
+    constructor(TELEGRAM_KEY: string, wallet_provider: Subject<IWallet>, double_history_provider: Subject<IDouble[]>, break_provider: Subject<boolean>) {
         this.bot = new Telegraf(TELEGRAM_KEY);
         this.break$ = break_provider
 
@@ -28,9 +28,13 @@ export class TelegramBot {
         });
 
         this.bot.command('dados', async (ctx) => {
-            const saldo_black = 1
-            const saldo_red = 2
-            const msg = "Oi wallet:" + JSON.stringify(this.wallet) // `Info:\n\t ${saldo_black}% ⬛ \n\t ${saldo_red}% 🟥 \n\t Saldo R$ ${saldo} \n\t Aposta inicial R$ ${aposta_inicial()} \n\t Gale_Multiplicativo ${gale_multiplicativo}x`
+            const saldo_black = this.double_history.filter(dh => dh.color.toLowerCase() == 'black').length
+            const saldo_red = this.double_history.filter(dh => dh.color.toLowerCase() == 'red').length
+            const saldo_white = this.double_history.filter(dh => dh.color.toLowerCase() == 'white').length
+            
+            const total = this.double_history.length
+
+            const msg = `⬛${(saldo_black*100/total).toFixed(2)}%\n🟥${(saldo_red*100/total).toFixed(2)}%\n⬜${(saldo_white*100/total).toFixed(2)}%\n\t Saldo R$ ${this.wallet?.real_balance}`
             ctx.reply(msg);
         });
 

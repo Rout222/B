@@ -34,13 +34,20 @@ export interface DoubleUpdateV2 {
 }
 
 export const ColorBet  = {
-    2 : "Black",
-    1 : "Red",
-    0 : "White"
+    2 : "black",
+    1 : "red",
+    0 : "white"
 }
 
 export const ColorToBet  = {
-    "Black": 2,
-    "Red": 1,
-    "White" : 0
+    "black": 2,
+    "red": 1,
+    "white" : 0
+}
+
+export interface DoubleBet {
+    apostando: boolean,
+    gale: number,
+    color: string,
+    resetando: boolean
 }

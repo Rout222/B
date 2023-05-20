@@ -5,7 +5,7 @@ import {
 } from "@akanass/rx-http-request";
 
 import { BehaviorSubject, Subject } from "rxjs";
-import { ICrashHistory, IDoubleHistory, IWallet } from "../Types";
+import { ICrashHistory, IDouble, IDoubleHistory, IWallet } from "../Types";
 
 const URL_WALLET = "https://blaze.com/api/wallets";
 const URL_DOUBLE_BETS = "https://blaze.com/api/roulette_bets";
@@ -21,7 +21,7 @@ export class BlazeAPI {
 
     public readonly disconnected$ = new Subject<void>();
     public readonly wallet$ = new Subject<IWallet>();
-    public readonly doubleHistory$ = new Subject<string[]>();
+    public readonly doubleHistory$ = new Subject<IDouble[]>();
     public readonly crashHistory$ = new Subject<number[]>()
 
     constructor(token: string) {
@@ -41,7 +41,7 @@ export class BlazeAPI {
     private getAuthOptions(): CoreOptions {
         return {
             auth: {
-                bearer: `bearer ${this.token}`,
+                bearer: this.token,
             },
             headers: {
                 "User-Agent": "Rx-Http-Request",
@@ -56,18 +56,12 @@ export class BlazeAPI {
             this.getDefaultOptions()
         ).subscribe((req) => {
             const dados = req.body.records.slice(0, 119);
-            const winners = dados
-                .reverse()
-                .map(
-                    (dado) =>
-                        dado.color.charAt(0).toUpperCase() + dado.color.slice(1)
-                );
-
-            this.doubleHistory$.next(winners);
+            this.doubleHistory$.next(dados.reverse());
         });
     }
 
     bet() {
+        console.log(this.stopped)
         if(this.stopped) {
             return;
         }
@@ -83,7 +77,6 @@ export class BlazeAPI {
         RxHR.get<IWallet[]>(URL_WALLET, this.getAuthOptions()).subscribe(
             (req) => {
                 const wallet = req.body[0]
-                console.log(wallet)
                 this.wallet$.next(wallet);
             }
         );

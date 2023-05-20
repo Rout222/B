@@ -7,3 +7,4 @@ const api = new BlazeAPI(blaze_key)
 const bot = new TelegramBot(telegram_key, api.wallet$, api.doubleHistory$, api.break$);
 
 api.updateWallet()
+api.updateDoubleHistory()
