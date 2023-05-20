@@ -4,7 +4,7 @@ import {
     RxHttpRequestResponse,
 } from "@akanass/rx-http-request";
 
-import { Subject } from "rxjs";
+import { BehaviorSubject, Subject } from "rxjs";
 import { ICrashHistory, IDoubleHistory, IWallet } from "../Types";
 
 const URL_WALLET = "https://blaze.com/api/wallets";
@@ -15,6 +15,10 @@ const URL_CRASH_HISTORY = "https://blaze.com/api/crash_games/history"
 export class BlazeAPI {
     private token: string;
 
+    private stopped : boolean;
+
+    public readonly break$ = new BehaviorSubject<boolean>(false);
+
     public readonly disconnected$ = new Subject<void>();
     public readonly wallet$ = new Subject<IWallet>();
     public readonly doubleHistory$ = new Subject<string[]>();
@@ -22,6 +26,7 @@ export class BlazeAPI {
 
     constructor(token: string) {
         this.token = token;
+        this.break$.subscribe(v => this.stopped = v)
     }
 
     private getDefaultOptions(): CoreOptions {
@@ -60,6 +65,18 @@ export class BlazeAPI {
 
             this.doubleHistory$.next(winners);
         });
+    }
+
+    bet() {
+        if(this.stopped) {
+            return;
+        }
+        //RxHR.post<IWallet[]>(URL_DOUBLE_BETS, this.getAuthOptions()).subscribe(
+        //    (req) => {
+        //        const wallet = req.body[0]
+        //        this.wallet$.next(wallet);
+        //    }
+        //);
     }
 
     updateWallet() {
